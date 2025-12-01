@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>升級版商品展示與管理系統</title>
+    <title>升商品展示</title>
     <style>
         /* 基礎 CSS 樣式 */
         body { font-family: sans-serif; background-color: #f4f4f4; padding: 0; margin: 0; }
@@ -80,24 +80,24 @@
 <body>
     <nav id="toolbar">
         <div>
-            <a href="#">🏠 網站首頁</a>
-            <a href="https://www.tiktok.com/@aceooloree" target="_blank">✉️ 聯絡管理員</a>
+            <a href="#"> 網站首頁</a>
+            <a href="https://www.tiktok.com/@aceooloree" target="_blank"> 聯絡管理員</a>
         </div>
         <div>
             <a href="#" id="upload-link" onclick="promptAdminKeyCheck(); return false;">
-                📝 上傳商品 (管理員登入)
+                 上傳商品 (管理員登入)
             </a>
             <span id="adminStatusDisplay" style="color: white; margin-left: 10px;"></span>
         </div>
     </nav>
     
     <div id="product-list-container">
-        <h2>🛍️ 全部商品列表</h2>
+        <h2> 全部商品列表</h2>
         <div id="product-list">
             <div class="product-item">
-                <img src="https://via.placeholder.com/300x200" alt="預設商品圖片">
-                <div class="product-name">精緻模型車 A款</div>
-                <div class="product-price">價格：NT$ 850</div>
+                <img src="https://via.placeholder.com/300x200" alt="">
+                <div class="product-name">空</div>
+                <div class="product-price">空</div>
                 <div id="key-flow-container-A"></div>
             </div>
             </div>
@@ -112,7 +112,7 @@
             <input type="text" id="productPrice" placeholder="2. 輸入商品價格 (純數字)" required>
             <input type="text" id="productImageUrl" placeholder="3. 輸入圖片連結 (URL)" required>
             
-            <button type="submit" id="submitUpload">⬆️ 提交新商品</button>
+            <button type="submit" id="submitUpload"> 提交新商品</button>
         </form>
         <div id="uploadStatus"></div>
     </div>
@@ -248,13 +248,13 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    statusDiv.textContent = '✅ 商品上傳成功！';
+                    statusDiv.textContent = ' 商品上傳成功！';
                     // 清空表單
                     document.getElementById('uploadForm').reset(); 
                     // 理想上：重新載入商品列表 (我們稍後會實作這個函式)
                     // fetchProducts(); 
                 } else {
-                    statusDiv.textContent = '❌ 上傳失敗: ' + data.message;
+                    statusDiv.textContent = ' 上傳失敗: ' + data.message;
                 }
 
             } catch (error) {

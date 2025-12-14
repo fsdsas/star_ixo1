@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>商品展示與管理系統</title>
+    <title>商品系統 星輝.ixo</title>
     <style>
         /* 基礎樣式 */
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; padding: 0; margin: 0; }
@@ -80,6 +80,8 @@
             max-width: 600px;
             border-radius: 8px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            /* 預設隱藏，由 JS 控制顯示 */
+            display: none; 
         }
         #adminArea h3 { color: #1d3557; margin-top: 0; }
         #uploadForm input, #uploadForm button {
@@ -95,6 +97,11 @@
             color: white;
             cursor: pointer;
             border: none;
+        }
+        #uploadStatus {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #1d3557;
         }
     </style>
 </head>
@@ -115,8 +122,6 @@
     <div id="adminArea">
         <h3>管理員專區：上傳新商品</h3>
         <form id="uploadForm">
-            <input type="hidden" id="adminKeyInput"> 
-            
             <input type="text" id="productName" placeholder="1. 輸入商品名稱" required>
             <input type="text" id="productPrice" placeholder="2. 輸入商品價格 (純數字)" required>
             <input type="text" id="productImageUrl" placeholder="3. 輸入圖片連結 (URL)" required>
@@ -136,20 +141,22 @@
 
     <script>
         // =======================================================
-        // 您的三個關鍵連結 (已填入)
+        // 核心設定：您的三個關鍵連結 (已填入)
         // =======================================================
         const CUSTOM_GET_KEY_URL = "https://www.tiktok.com/@star_hoshlno?is_from_webapp=1&sender_device=pc";
-        const GAS_VERIFY_URL = https://script.google.com/macros/s/AKfycbynucd8WSC-ZDPrKROHt75AIPWHhKBDv-DWhSs7ZGF7437-KC3hmKrdQOrp5HlttD04/exec";
+        // 請確保您的 GAS 網址在雙引號內
+        const GAS_VERIFY_URL = "https://script.google.com/macros/s/AKfycbynucd8WSC-ZDPrKROHt75AIPWHhKBDv-DWhSs7ZGF7437-KC3hmKrdQOrp5HlttD04/exec";
         const FINAL_PRIVATE_MESSAGE_URL = "https://www.tiktok.com/@aceooloree";
+        
+        // 讀取商品列表用的 GAS 網址 (目前與 VERIFY 網址相同，但未來建議分開部署)
         const GAS_PRODUCT_UPLOAD_URL = GAS_VERIFY_URL; 
-        // *注意: 如果您需要讀取商品，將來您需要再部署一個 GAS 網址專門處理 GET 請求
+        const GAS_PRODUCT_READ_URL = GAS_VERIFY_URL; 
 
         // 瀏覽器狀態檢查
         let hasKey = localStorage.getItem('isKeyAcquired') === 'true'; 
         let isAdmin = localStorage.getItem('isAdminLoggedIn') === 'true'; 
 
         // --- 核心介面與狀態管理 ---
-
         function updateAdminView() {
             const adminArea = document.getElementById('adminArea');
             const uploadLink = document.getElementById('upload-link');
@@ -183,24 +190,21 @@
                     method: 'POST',
                     body: new URLSearchParams({ 
                         'user_key': adminKey,
+                        // 【關鍵修復點】: 明確傳遞 check_type: 'admin'
                         'check_type': 'admin' 
                     })
                 });
 
                 const data = await response.json(); 
                 
-                // 【關鍵修復點】確保 is_admin 屬性被正確檢查
                 if (data.success && data.is_admin) { 
                     alert('管理員驗證成功！');
                     localStorage.setItem('isAdminLoggedIn', 'true');
-                    localStorage.setItem('currentAdminKey', adminKey);
+                    localStorage.setItem('currentAdminKey', adminKey); // 儲存 Key 供上傳使用
                     
-                    // 更新狀態並刷新頁面以顯示管理員區塊
                     isAdmin = true;
                     updateAdminView();
-                    // window.location.reload(); 
                 } else {
-                    // 打印錯誤訊息到 Console，方便除錯
                     console.error("Admin Login Failed Response:", data);
                     alert('管理員驗證失敗: ' + (data.message || '伺服器未提供訊息'));
                 }
@@ -211,7 +215,7 @@
             }
         }
         
-        // --- 商品上傳邏輯 ---
+        // --- 商品上傳邏輯 (需要管理員權限) ---
         document.getElementById('uploadForm').addEventListener('submit', handleProductUpload);
 
         async function handleProductUpload(event) {
@@ -245,51 +249,36 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    statusDiv.textContent = ' 商品上傳成功！正在重新載入列表...';
+                    statusDiv.textContent = '商品上傳成功！正在重新載入列表...';
                     document.getElementById('uploadForm').reset(); 
                     fetchProducts(); // 成功後，重新載入商品列表
                 } else {
                     console.error("Upload Error Response:", data);
-                    statusDiv.textContent = ' 上傳失敗: ' + (data.message || '請檢查後端日誌');
+                    statusDiv.textContent = '上傳失敗: ' + (data.message || '請檢查後端日誌');
                 }
 
             } catch (error) {
-                statusDiv.textContent = '連線錯誤，無法提交商品。';
+                statusDiv.textContent = '連線錯誤，無法提交商品';
                 console.error('Upload Error:', error);
             }
         }
 
-        // --- 動態商品列表邏輯 ---
+        // --- 動態商品列表邏輯 (未來需與 GAS doGet 整合) ---
 
-        // 函式：負責讀取商品資料 (需要後端支援 doGet 才能完整運行)
+        // 函式：負責讀取商品資料
         async function fetchProducts() {
             const productListDiv = document.getElementById('product-list');
-            productListDiv.innerHTML = '<p>正在從伺服器載入商品...</p>';
+            productListDiv.innerHTML = '<p>⏳ 正在從伺服器載入商品...</p>';
             
-            // 由於您的 GAS 尚未有公開讀取商品的 doGet 函式，
-            // 這裡先使用一個本地假資料來展示網格佈局
+            // ** 未來請在 GAS 部署新的 doGet 函式並將讀取邏輯寫入下方 **
             
-            // *未來實作：您需要再部署一個 GAS 網址來執行讀取 (GET) Products 工作表的函式
-            // try {
-            //     const response = await fetch(GAS_PRODUCT_READ_URL);
-            //     const data = await response.json();
-            //     if (data.success) {
-            //         renderProducts(data.products);
-            //     } else {
-            //         productListDiv.innerHTML = '<p>無法載入商品列表: ' + data.message + '</p>';
-            //     }
-            // } catch (error) {
-            //     productListDiv.innerHTML = '<p>網路錯誤，無法連線到商品伺服器。</p>';
-            // }
-
-
-            // 範例：使用本地假資料來測試網格佈局
+            // 目前使用本地假資料展示
             const sampleProducts = [
                 { id: 1, name: '測試A', price: 950, image: 'https://via.placeholder.com/300x200/457b9d/ffffff?text=Product+A' },
                 { id: 2, name: '測試B', price: 1200, image: 'https://via.placeholder.com/300x200/a8dadc/000000?text=Product+B' },
                 { id: 3, name: '測試C', price: 850, image: 'https://via.placeholder.com/300x200/e63946/ffffff?text=Product+C' },
                 { id: 4, name: '測試D', price: 1500, image: 'https://via.placeholder.com/300x200/1d3557/ffffff?text=Product+D' },
-                { id: 5, name: '測試E', price: 699, image: 'https://via.placeholder.com/300x200/f1faee/000000?text=Product+E' },
+                { id: 5, name: '星空投影儀 E款', price: 699, image: 'https://via.placeholder.com/300x200/f1faee/000000?text=Product+E' },
             ];
             setTimeout(() => {
                 renderProducts(sampleProducts);
@@ -305,7 +294,6 @@
             }
 
             productListDiv.innerHTML = products.map(product => {
-                // 這裡渲染出每一個商品框
                 return `
                     <div class="product-item">
                         <img src="${product.image}" alt="${product.name}">
@@ -320,7 +308,6 @@
 
         // 函式：渲染每個商品的 KEY 驗證流程
         function renderProductKeyFlow(productId) {
-            // 注意：這裡的 hasKey 變數是全域的
             if (hasKey) {
                 return `
                     <input type="text" id="userKeyInput-${productId}" class="key-input" placeholder="請輸入您獲得的一次性 KEY">
@@ -331,16 +318,17 @@
             }
         }
         
-        // --- 舊 KEY 驗證流程函式 (需要與後端配合) ---
+        // --- KEY 驗證與導向流程 ---
         function redirectToGetKey() {
+            // 標記為已獲取 Key，這樣刷新頁面後會顯示輸入框
             localStorage.setItem('isKeyAcquired', 'true');
-            // 更新狀態
             hasKey = true;
+            
+            // 導向獲取 Key 的連結
             window.location.href = CUSTOM_GET_KEY_URL; 
         }
 
         async function verifyKey(productId) {
-            // 由於現在有多個商品框，我們使用 ID 來獲取正確的輸入框
             const key = document.getElementById(`userKeyInput-${productId}`).value.trim();
 
             if (!key) {
@@ -348,7 +336,7 @@
                 return;
             }
             
-            // ... (可以新增一個顯示驗證狀態的 div)
+            // ... 可以新增顯示驗證狀態的 UI 提示
             
             try {
                 // 發送 POST 請求到您的 GAS 驗證伺服器
@@ -356,7 +344,7 @@
                     method: 'POST',
                     body: new URLSearchParams({ 
                         'user_key': key,
-                        'check_type': 'regular' // 確保是進行一般驗證
+                        'check_type': 'regular' // 一般使用者 KEY 驗證
                     })
                 });
 
@@ -364,14 +352,14 @@
 
                 if (data.success && data.redirect_url) {
                     alert('KEY 驗證成功！即將導向私訊頁面。');
-                    // 驗證成功，導向最終私訊連結
-                    window.location.href = data.redirect_url; 
                     
-                    // 清除瀏覽器紀錄
+                    // 清除瀏覽器紀錄 (因為一次性 KEY 已被消耗)
                     localStorage.removeItem('isKeyAcquired'); 
                     hasKey = false;
+                    
+                    // 導向最終私訊連結
+                    window.location.href = data.redirect_url; 
                 } else {
-                    // 打印錯誤訊息到 Console，方便除錯
                     console.error("Regular Verification Failed Response:", data);
                     alert('驗證失敗: ' + (data.message || '伺服器未提供訊息'));
                 }
@@ -384,7 +372,7 @@
 
         // --- 網頁啟動點 ---
         window.onload = function() {
-            updateAdminView(); // 根據狀態顯示管理員區塊
+            updateAdminView(); // 根據狀態顯示/隱藏管理員區塊
             fetchProducts(); // 載入商品列表
         }
     </script>
